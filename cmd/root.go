@@ -14,7 +14,7 @@ func GetRootCmd() *cobra.Command {
 		Example: `chainlink-integration-monitor [config-file]`,
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			configFileName := ""
+			var configFileName string
 
 			if len(args) == 0 {
 				configFileName = cfg.DefaultConfigFileName

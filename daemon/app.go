@@ -7,13 +7,9 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-
 	"github.com/secret2830/chainlink-integration-monitor/base"
-	"github.com/secret2830/chainlink-integration-monitor/monitors/adapter"
-	birita "github.com/secret2830/chainlink-integration-monitor/monitors/bsn-irita"
-	"github.com/secret2830/chainlink-integration-monitor/monitors/chainlink"
-	"github.com/secret2830/chainlink-integration-monitor/monitors/initiator"
+	"github.com/secret2830/chainlink-integration-monitor/common"
+	"github.com/secret2830/chainlink-integration-monitor/monitors"
 )
 
 type Application struct {
@@ -23,10 +19,7 @@ type Application struct {
 func NewApplication(config *viper.Viper) *Application {
 	return &Application{
 		Monitors: []base.IMonitor{
-			newBIritaMonitor(config),
-			newChainlinkMonitor(config),
-			newInitiatorMonitor(config),
-			newAdapterMonitor(config),
+			newIRISHUBMonitor(config),
 		},
 	}
 }
@@ -40,7 +33,7 @@ func (app *Application) Start() {
 	signal.Notify(sig, os.Interrupt)
 	<-sig
 
-	logger.Info("Stopping the monitor...")
+	common.Logger.Info("Stopping the monitor...")
 
 	app.Stop()
 	os.Exit(0)
@@ -51,78 +44,26 @@ func (app *Application) Stop() {
 		monitor.Stop()
 	}
 
-	logger.Info("All monitors stopped")
+	common.Logger.Info("All monitors stopped")
 }
 
-func newBIritaMonitor(config *viper.Viper) *birita.Monitor {
-	url := config.GetString("bsn-irita.endpoint")
-	interval := config.GetInt64("bsn-irita.interval")
-	providerAddr := config.GetString("bsn-irita.provider_addr")
+func newIRISHUBMonitor(config *viper.Viper) *monitors.Monitor {
+	rpcURL := config.GetString("irishub.rpc_endpoint")
+	gRPCURL := config.GetString("irishub.grpc_endpoint")
+	prometheusAddr := config.GetString("irishub.prometheus_addr")
+	interval := config.GetInt64("irishub.interval")
+	providerAddrs := config.GetStringSlice("irishub.provider_addresses")
+	threshold := config.GetInt64("balance.threshold")
 
-	endpoint := base.NewEndpointFromURL(url)
+	rpcEndpoint := base.NewEndpointFromURL(rpcURL)
+	grpcEndpoint := base.NewEndpointFromURL(gRPCURL)
 
-	return birita.NewMonitor(
-		endpoint,
+	return monitors.NewMonitor(
+		rpcEndpoint,
+		grpcEndpoint,
+		prometheusAddr,
 		time.Duration(interval)*time.Second,
-		providerAddr,
-	)
-}
-
-func newChainlinkMonitor(config *viper.Viper) *chainlink.Monitor {
-	url := config.GetString("chainlink.endpoint")
-	accessKey := config.GetString("chainlink.access_key")
-	secret := config.GetString("chainlink.secret")
-	timeout := config.GetInt64("chainlink.timeout")
-	attempts := config.GetInt("chainlink.retry")
-	interval := config.GetInt64("chainlink.interval")
-
-	endpoint := base.NewEndpoint(url, accessKey, secret)
-	retry := base.NewRetryConfig(
-		time.Duration(timeout)*time.Second,
-		attempts,
-	)
-
-	return chainlink.NewMonitor(
-		endpoint,
-		retry,
-		time.Duration(interval)*time.Second,
-	)
-}
-
-func newInitiatorMonitor(config *viper.Viper) *initiator.Monitor {
-	url := config.GetString("external-initiator.endpoint")
-	timeout := config.GetInt64("external-initiator.timeout")
-	attempts := config.GetInt("external-initiator.retry")
-	interval := config.GetInt64("external-initiator.interval")
-
-	endpoint := base.NewEndpointFromURL(url)
-	retry := base.NewRetryConfig(
-		time.Duration(timeout)*time.Second,
-		attempts,
-	)
-
-	return initiator.NewMonitor(
-		endpoint,
-		retry,
-		time.Duration(interval)*time.Second,
-	)
-}
-
-func newAdapterMonitor(config *viper.Viper) *adapter.Monitor {
-	url := config.GetString("external-adapter.endpoint")
-	timeout := config.GetInt64("external-adapter.timeout")
-	attempts := config.GetInt("external-adapter.retry")
-	interval := config.GetInt64("external-adapter.interval")
-
-	endpoint := base.NewEndpointFromURL(url)
-	retry := base.NewRetryConfig(
-		time.Duration(timeout)*time.Second,
-		attempts,
-	)
-
-	return adapter.NewMonitor(
-		endpoint,
-		retry,
-		time.Duration(interval)*time.Second,
+		threshold,
+		providerAddrs,
 	)
 }
